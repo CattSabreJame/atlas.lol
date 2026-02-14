@@ -1,8 +1,5 @@
-import { redirect } from "next/navigation";
-
 import { AuthPanel } from "@/components/auth/auth-panel";
 import { PageTransition } from "@/components/ui/page-transition";
-import { createClient } from "@/lib/supabase/server";
 
 interface AuthPageProps {
   searchParams: Promise<{ next?: string; mode?: string }>;
@@ -16,15 +13,6 @@ const AUTH_BENEFITS = [
 ];
 
 export default async function AuthPage({ searchParams }: AuthPageProps) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (user) {
-    redirect("/dashboard");
-  }
-
   const resolved = await searchParams;
   const nextPath = resolved.next?.startsWith("/") ? resolved.next : "/dashboard";
   const initialMode = resolved.mode === "sign-up" ? "sign-up" : resolved.mode === "magic" ? "magic" : resolved.mode === "reset" ? "reset" : "sign-in";

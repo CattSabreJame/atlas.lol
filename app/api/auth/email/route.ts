@@ -86,6 +86,38 @@ function buildCallbackLink(site: string, tokenHash: string, type: string, nextPa
   return `${site}/auth/callback?${params.toString()}`;
 }
 
+function isLocalhostUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+function resolveEmailSiteUrl(request: Request): string {
+  const configuredSite = getSiteBaseUrl();
+
+  if (!isLocalhostUrl(configuredSite)) {
+    return configuredSite;
+  }
+
+  const requestOrigin = new URL(request.url).origin;
+
+  if (!isLocalhostUrl(requestOrigin)) {
+    return requestOrigin;
+  }
+
+  const vercelUrl = process.env.VERCEL_URL?.trim();
+
+  if (vercelUrl) {
+    const normalized = vercelUrl.replace(/^https?:\/\//i, "");
+    return `https://${normalized}`;
+  }
+
+  return "https://joinatlas.dev";
+}
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -274,8 +306,10 @@ function profileConflictMessage(errorMessage: string): string {
   return "Unable to create account right now.";
 }
 
-async function sendSignupEmail(payload: Extract<AuthEmailRequest, { action: "sign-up" }>): Promise<NextResponse> {
-  const site = getSiteBaseUrl();
+async function sendSignupEmail(
+  payload: Extract<AuthEmailRequest, { action: "sign-up" }>,
+  site: string,
+): Promise<NextResponse> {
   const nextPath = normalizeNextPath(payload.nextPath);
   const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const supabase = createAdminClient();
@@ -318,8 +352,10 @@ async function sendSignupEmail(payload: Extract<AuthEmailRequest, { action: "sig
   });
 }
 
-async function sendMagicLinkEmail(payload: Extract<AuthEmailRequest, { action: "magic" }>): Promise<NextResponse> {
-  const site = getSiteBaseUrl();
+async function sendMagicLinkEmail(
+  payload: Extract<AuthEmailRequest, { action: "magic" }>,
+  site: string,
+): Promise<NextResponse> {
   const nextPath = normalizeNextPath(payload.nextPath);
   const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const supabase = createAdminClient();
@@ -359,8 +395,10 @@ async function sendMagicLinkEmail(payload: Extract<AuthEmailRequest, { action: "
   });
 }
 
-async function sendRecoveryEmail(payload: Extract<AuthEmailRequest, { action: "reset" }>): Promise<NextResponse> {
-  const site = getSiteBaseUrl();
+async function sendRecoveryEmail(
+  payload: Extract<AuthEmailRequest, { action: "reset" }>,
+  site: string,
+): Promise<NextResponse> {
   const nextPath = "/auth/update-password";
   const redirectTo = `${site}/auth/callback?next=${encodeURIComponent(nextPath)}`;
   const supabase = createAdminClient();
@@ -432,15 +470,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const site = resolveEmailSiteUrl(request);
+
     if (parsed.data.action === "sign-up") {
-      return await sendSignupEmail(parsed.data);
+      return await sendSignupEmail(parsed.data, site);
     }
 
     if (parsed.data.action === "magic") {
-      return await sendMagicLinkEmail(parsed.data);
+      return await sendMagicLinkEmail(parsed.data, site);
     }
 
-    return await sendRecoveryEmail(parsed.data);
+    return await sendRecoveryEmail(parsed.data, site);
   } catch (error) {
     console.error("Custom auth email route failed", error);
     return NextResponse.json(

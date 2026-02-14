@@ -7,8 +7,6 @@ import { getSupabaseEnv } from "@/lib/env";
 const PROTECTED_PATHS = ["/dashboard", "/editor", "/settings", "/admin"];
 
 export async function proxy(request: NextRequest) {
-  const { url, anonKey } = getSupabaseEnv();
-
   const path = request.nextUrl.pathname;
 
   if (path.startsWith("/@") && path.length > 2) {
@@ -16,6 +14,15 @@ export async function proxy(request: NextRequest) {
     rewriteUrl.pathname = `/${path.slice(2)}`;
     return NextResponse.rewrite(rewriteUrl);
   }
+
+  const requiresSessionLookup =
+    PROTECTED_PATHS.some((segment) => path.startsWith(segment)) || path === "/auth";
+
+  if (!requiresSessionLookup) {
+    return NextResponse.next({ request });
+  }
+
+  const { url, anonKey } = getSupabaseEnv();
 
   const response = NextResponse.next({ request });
 
@@ -54,5 +61,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
