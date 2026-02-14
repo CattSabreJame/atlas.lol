@@ -51,7 +51,7 @@ Atlas is a premium dark bio/link hub built with Next.js App Router, TypeScript, 
    - `supabase/migrations/202602140005_premium_feature_gates.sql`
    - `supabase/migrations/202602140006_ai_pro_and_entry_fonts.sql`
 4. In Supabase Auth settings, add redirect URLs:
-   - `http://localhost:3000/auth/callback`
+   - `https://joinatlas.dev/auth/callback`
 5. Confirm the migration created:
    - Tables: `profiles`, `links`, `analytics_daily`, `music_tracks`, `widgets`, `comments`, `admin_users`
    - Storage buckets: `avatars`, `cursors`, `profile-backgrounds`, `profile-fonts`, `link-icons`
@@ -77,8 +77,8 @@ Create `.env.local` using `.env.example`:
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-SITE_URL=http://localhost:3000
+NEXT_PUBLIC_SITE_URL=https://joinatlas.dev/
+SITE_URL=https://joinatlas.dev/
 GROQ_API_KEY=your_groq_api_key
 GROQ_MODEL=llama-3.3-70b-versatile
 DISCORD_CLIENT_ID=your_discord_oauth_client_id
@@ -109,7 +109,7 @@ npm install
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+Open `https://joinatlas.dev/`.
 
 ## Key Routes
 
