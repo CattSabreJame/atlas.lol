@@ -312,10 +312,6 @@ export function SettingsPanel({
         active_cursor_id: hasPremium ? activeCursorId || null : null,
       };
 
-      if (handleChanged) {
-        updates.handle_changed_at = new Date().toISOString();
-      }
-
       const { error } = await supabase.from("profiles").update(updates).eq("id", userId);
 
       if (error) {
