@@ -1,6 +1,6 @@
 const CATBOX_HOST_PATTERN = /(^|\.)catbox\.moe$/i;
 
-export function isCatboxUrl(value: string | null | undefined): boolean {
+export function isCatboxUrl(value: string | null | undefined): value is string {
   if (!value) {
     return false;
   }
