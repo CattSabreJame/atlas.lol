@@ -615,20 +615,8 @@ export function PublicProfile({
           <motion.div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}
-            initial={
-              reduceMotion
-                ? undefined
-                : entryGateOpen
-                  ? { opacity: 1, y: 0 }
-                  : { opacity: 0, y: 8 }
-            }
-            animate={
-              reduceMotion
-                ? undefined
-                : entryGateOpen
-                  ? { opacity: 1, y: 0 }
-                  : { opacity: 0, y: 8 }
-            }
+            initial={reduceMotion ? undefined : { opacity: 1, y: 0 }}
+            animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
             transition={{ duration: 0.28, ease: "easeOut" }}
           >
             <section
