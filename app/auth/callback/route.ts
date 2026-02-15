@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
-import { type EmailOtpType } from "@supabase/supabase-js";
+import { type EmailOtpType, type User } from "@supabase/supabase-js";
 
 import { extractDiscordUserIdFromIdentity, isDiscordUserId } from "@/lib/discord";
 import { getDiscordPresenceBotEnv } from "@/lib/env";
+import { HANDLE_REGEX, normalizeHandle } from "@/lib/handles";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 const EMAIL_OTP_TYPES = new Set<EmailOtpType>([
@@ -14,6 +16,7 @@ const EMAIL_OTP_TYPES = new Set<EmailOtpType>([
   "email",
 ]);
 const PROFILE_BADGES = new Set(["owner", "admin", "staff", "verified", "pro", "founder"]);
+const PROVISIONAL_HANDLE_REGEX = /^pending_[a-f0-9]{12}$/;
 
 function normalizeBadgeArray(value: unknown): string[] {
   if (!Array.isArray(value)) {
@@ -53,6 +56,59 @@ async function ensureVerifiedBadge(
 
   const nextBadges = Array.from(new Set([...existingBadges, "verified"]));
   await supabase.from("profiles").update({ badges: nextBadges }).eq("id", userId);
+}
+
+function getRequestedHandle(user: User): string | null {
+  const rawValue = user.user_metadata?.handle;
+
+  if (typeof rawValue !== "string") {
+    return null;
+  }
+
+  const normalized = normalizeHandle(rawValue);
+  return HANDLE_REGEX.test(normalized) ? normalized : null;
+}
+
+async function ensureVerifiedHandleClaim(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: User,
+): Promise<void> {
+  if (!user.email_confirmed_at) {
+    return;
+  }
+
+  const requestedHandle = getRequestedHandle(user);
+
+  if (!requestedHandle) {
+    return;
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("handle")
+    .eq("id", user.id)
+    .maybeSingle<{ handle: string }>();
+
+  if (profileError || !profile) {
+    return;
+  }
+
+  if (!PROVISIONAL_HANDLE_REGEX.test(profile.handle)) {
+    return;
+  }
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ handle: requestedHandle })
+    .eq("id", user.id);
+
+  if (updateError && updateError.code !== "23505") {
+    console.error("Verified handle claim failed", {
+      userId: user.id,
+      requestedHandle,
+      message: updateError.message,
+    });
+  }
 }
 
 async function tryJoinConfiguredDiscordGuild(
@@ -133,6 +189,7 @@ export async function GET(request: Request) {
 
     if (user) {
       await ensureVerifiedBadge(supabase, user.id, user.email_confirmed_at);
+      await ensureVerifiedHandleClaim(supabase, user);
 
       try {
         let discordUserId: string | null = null;
@@ -179,7 +236,8 @@ export async function GET(request: Request) {
             updates.discord_presence_enabled = true;
           }
 
-          await supabase.from("profiles").update(updates).eq("id", user.id);
+          const admin = createAdminClient();
+          await admin.from("profiles").update(updates).eq("id", user.id);
         }
       } catch {
         // OAuth callback should still complete if discord sync fails.
@@ -194,6 +252,7 @@ export async function GET(request: Request) {
 
     if (user) {
       await ensureVerifiedBadge(supabaseClient, user.id, user.email_confirmed_at);
+      await ensureVerifiedHandleClaim(supabaseClient, user);
     }
   }
 

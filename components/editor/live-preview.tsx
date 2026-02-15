@@ -261,14 +261,19 @@ export function LivePreview({
 
     calculateScale();
 
-    const observer = new ResizeObserver(calculateScale);
-    observer.observe(frame);
-    observer.observe(content);
+    let observer: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(calculateScale);
+      observer.observe(frame);
+      observer.observe(content);
+    }
+
     window.addEventListener("resize", calculateScale);
 
     return () => {
       cancelAnimationFrame(rafId);
-      observer.disconnect();
+      observer?.disconnect();
       window.removeEventListener("resize", calculateScale);
     };
   }, [previewDevice]);

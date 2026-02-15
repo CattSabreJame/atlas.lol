@@ -487,14 +487,19 @@ export function PublicProfile({
 
     calculateScale();
 
-    const observer = new ResizeObserver(calculateScale);
-    observer.observe(viewport);
-    observer.observe(content);
+    let observer: ResizeObserver | null = null;
+
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(calculateScale);
+      observer.observe(viewport);
+      observer.observe(content);
+    }
+
     window.addEventListener("resize", calculateScale);
 
     return () => {
       cancelAnimationFrame(rafId);
-      observer.disconnect();
+      observer?.disconnect();
       window.removeEventListener("resize", calculateScale);
     };
   }, [
@@ -610,7 +615,13 @@ export function PublicProfile({
           <motion.div
             className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
             style={{ width: `${scaledWidth}px`, height: `${scaledHeight}px` }}
-            initial={reduceMotion ? undefined : { opacity: 0, y: 8 }}
+            initial={
+              reduceMotion
+                ? undefined
+                : entryGateOpen
+                  ? { opacity: 1, y: 0 }
+                  : { opacity: 0, y: 8 }
+            }
             animate={
               reduceMotion
                 ? undefined

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { isDiscordUserId } from "@/lib/discord";
 import { getDiscordOAuthEnv, getDiscordPresenceBotEnv } from "@/lib/env";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -202,7 +203,8 @@ export async function GET(request: Request) {
 
     const joined = await tryJoinConfiguredDiscordGuild(discordUserId, accessToken);
 
-    const { error: updateError } = await supabase
+    const admin = createAdminClient();
+    const { error: updateError } = await admin
       .from("profiles")
       .update({
         discord_user_id: discordUserId,

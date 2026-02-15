@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { rejectCrossOrigin } from "@/lib/request-security";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -36,7 +37,8 @@ export async function POST(request: Request) {
       }
     }
 
-    const { error: profileError } = await supabase
+    const admin = createAdminClient();
+    const { error: profileError } = await admin
       .from("profiles")
       .update({
         discord_presence_enabled: false,

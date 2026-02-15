@@ -24,6 +24,15 @@ function normalizeBaseUrl(value: string): string {
   return value.trim().replace(/\/+$/, "");
 }
 
+function isLocalhostBaseUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.hostname === "localhost" || parsed.hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
 export function getSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -94,7 +103,27 @@ export function getSiteBaseUrl(): string {
     ?? process.env.SITE_URL
     ?? "https://joinatlas.dev/";
 
-  return normalizeBaseUrl(candidate);
+  const normalizedCandidate = normalizeBaseUrl(candidate);
+
+  if (isLocalhostBaseUrl(normalizedCandidate)) {
+    const isProduction = process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+
+    if (isProduction) {
+      const vercelUrl = process.env.VERCEL_URL?.trim();
+
+      if (vercelUrl) {
+        const sanitizedVercelHost = vercelUrl.replace(/^https?:\/\//i, "").replace(/\/+$/, "");
+
+        if (sanitizedVercelHost) {
+          return `https://${sanitizedVercelHost}`;
+        }
+      }
+
+      return "https://joinatlas.dev";
+    }
+  }
+
+  return normalizedCandidate;
 }
 
 export function getSmtpEnv(): SmtpEnv | null {
