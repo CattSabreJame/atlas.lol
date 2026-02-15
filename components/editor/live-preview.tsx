@@ -38,7 +38,6 @@ import {
   ProfileFontPreset,
   ProfileAnimation,
   ProfileEffect,
-  WidgetRow,
 } from "@/types/db";
 
 type PreviewDevice = "phone" | "tablet" | "desktop";
@@ -74,17 +73,8 @@ interface LivePreviewProps {
   };
   links: LinkRow[];
   tracks: MusicTrackRow[];
-  widgets: WidgetRow[];
   previewDevice?: PreviewDevice;
   hideCustomBackground?: boolean;
-}
-
-function formatClock(now: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(now);
 }
 
 function avatarShapeClass(shape: AvatarShape): string {
@@ -140,13 +130,11 @@ export function LivePreview({
   profile,
   links,
   tracks,
-  widgets,
   previewDevice = "phone",
   hideCustomBackground = false,
 }: LivePreviewProps) {
   const reduceMotion = useReducedMotion();
   const previewSpec = PREVIEW_SPECS[previewDevice];
-  const [now, setNow] = useState(() => new Date());
   const [previewScale, setPreviewScale] = useState(1);
   const [previewWidth, setPreviewWidth] = useState(PREVIEW_CONTENT_BASE_WIDTH);
   const [previewHeight, setPreviewHeight] = useState(PREVIEW_CONTENT_FALLBACK_HEIGHT);
@@ -203,11 +191,6 @@ export function LivePreview({
     return nextStyle;
   }, [previewBackgroundEffect, reduceMotion]);
 
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
-
   const activeLinks = useMemo(
     () => [...links].sort((a, b) => a.sort_order - b.sort_order),
     [links],
@@ -216,13 +199,9 @@ export function LivePreview({
     () => tracks.filter((track) => track.is_active).sort((a, b) => a.sort_order - b.sort_order),
     [tracks],
   );
-  const activeWidgets = useMemo(
-    () => widgets.filter((widget) => widget.is_active).sort((a, b) => a.sort_order - b.sort_order),
-    [widgets],
-  );
   const previewViewCount = useMemo(
-    () => 120 + activeLinks.length * 47 + activeTracks.length * 29 + activeWidgets.length * 17,
-    [activeLinks.length, activeTracks.length, activeWidgets.length],
+    () => 120 + activeLinks.length * 47 + activeTracks.length * 29,
+    [activeLinks.length, activeTracks.length],
   );
   const featuredLink = profile.layout === "split" ? activeLinks[0] ?? null : null;
   const secondaryLinks = profile.layout === "split" ? activeLinks.slice(1) : activeLinks;
@@ -498,53 +477,6 @@ export function LivePreview({
                 </section>
               ) : null}
 
-              {activeWidgets.length ? (
-                <section className="space-y-2">
-                  <p className="text-xs uppercase tracking-[0.14em] text-[#9e9589]">Widgets</p>
-                  <div className={profile.layout === "stack" ? "space-y-2" : "grid grid-cols-1 gap-2 sm:grid-cols-2"}>
-                    {activeWidgets.slice(0, 3).map((widget) => (
-                      <div key={widget.id} className="surface-soft p-3">
-                        {widget.widget_type === "clock" ? (
-                          <>
-                            <p className="text-xs text-[#9a9184]">{widget.title}</p>
-                            <p className="text-lg font-medium text-white">{formatClock(now)}</p>
-                          </>
-                        ) : null}
-
-                        {widget.widget_type === "stat" ? (
-                          <>
-                            <p className="text-xs text-[#9a9184]">{widget.title}</p>
-                            <p className="text-lg font-medium text-white">{widget.value || "0"}</p>
-                          </>
-                        ) : null}
-
-                        {widget.widget_type === "quote" ? (
-                          <>
-                            <p className="text-xs text-[#9a9184]">{widget.title}</p>
-                            <p className="mt-1 text-sm text-[#ddd6cc]">{widget.value || "Quote"}</p>
-                          </>
-                        ) : null}
-
-                        {widget.widget_type === "embed" ? (
-                          <>
-                            <p className="mb-2 text-xs text-[#9a9184]">{widget.title}</p>
-                            {widget.source_url ? (
-                              <iframe
-                                src={widget.source_url}
-                                title={widget.title}
-                                className="h-24 w-full rounded-lg border border-white/10"
-                                loading="lazy"
-                              />
-                            ) : (
-                              <p className="text-xs text-[#908779]">Add an embed URL.</p>
-                            )}
-                          </>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
                 </div>
                 {profile.showViewCount ? (
                   <div className="pointer-events-none absolute right-3 bottom-3 z-[12] inline-flex items-center gap-1 rounded-full border border-white/14 bg-black/42 px-2 py-1 text-[10px] text-[#dcd6cd]">

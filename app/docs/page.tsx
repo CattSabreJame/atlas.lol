@@ -66,7 +66,7 @@ export default function DocsPage() {
           <li>Profile: avatar, display name, bio, badges, and identity fields.</li>
           <li>Links: add, edit, reorder, and style your links.</li>
           <li>Appearance: themes, background mode, entry screen, fonts, and visual effects.</li>
-          <li>Music and widgets: connect embeds and profile modules.</li>
+          <li>Music: connect approved provider URLs or uploaded tracks.</li>
           <li>AI Assist: optional writing helpers for bios and labels (Pro only).</li>
         </ol>
       </section>

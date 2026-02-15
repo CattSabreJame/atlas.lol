@@ -26,10 +26,9 @@ export default async function DashboardPage() {
     supabase.from("links").select("*").eq("user_id", user.id),
   ]);
 
-  const [{ count: commentsCount }, { count: tracksCount }, { count: widgetsCount }] = await Promise.all([
+  const [{ count: commentsCount }, { count: tracksCount }] = await Promise.all([
     supabase.from("comments").select("id", { count: "exact", head: true }).eq("user_id", user.id),
     supabase.from("music_tracks").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-    supabase.from("widgets").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
 
   const analyticsRows = (analyticsResult.data ?? []) as AnalyticsDailyRow[];
@@ -43,7 +42,6 @@ export default async function DashboardPage() {
         links={links}
         commentsCount={commentsCount ?? 0}
         tracksCount={tracksCount ?? 0}
-        widgetsCount={widgetsCount ?? 0}
       />
     </PageTransition>
   );

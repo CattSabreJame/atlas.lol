@@ -15,7 +15,6 @@ interface DashboardClientProps {
   links: LinkRow[];
   commentsCount: number;
   tracksCount: number;
-  widgetsCount: number;
 }
 
 function getRangeDays(length: number, offset = 0): string[] {
@@ -57,7 +56,6 @@ export function DashboardClient({
   links,
   commentsCount,
   tracksCount,
-  widgetsCount,
 }: DashboardClientProps) {
   const [range, setRange] = useState<7 | 30>(7);
   const reduceMotion = useReducedMotion();
@@ -180,7 +178,7 @@ export function DashboardClient({
               Content health
             </p>
             <p className="mt-2 text-3xl font-semibold text-white">{formatCompactNumber(links.length)}</p>
-            <p className="mt-1 text-xs text-[#9f9588]">Links with {tracksCount} tracks and {widgetsCount} widgets</p>
+            <p className="mt-1 text-xs text-[#9f9588]">Links with {tracksCount} tracks</p>
           </div>
         </div>
       </motion.section>
@@ -292,10 +290,6 @@ export function DashboardClient({
             <div className="surface-soft px-3 py-2">
               <p className="text-xs text-[#a89f92]">Music tracks</p>
               <p className="mt-1 text-white">{tracksCount} active setup{tracksCount === 1 ? "" : "s"}</p>
-            </div>
-            <div className="surface-soft px-3 py-2">
-              <p className="text-xs text-[#a89f92]">Widgets</p>
-              <p className="mt-1 text-white">{widgetsCount} widget{widgetsCount === 1 ? "" : "s"}</p>
             </div>
             <div className="surface-soft px-3 py-2">
               <p className="text-xs text-[#a89f92]">Quick suggestion</p>

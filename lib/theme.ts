@@ -1,5 +1,6 @@
 import { type CSSProperties } from "react";
 
+import { isCatboxUrl } from "@/lib/catbox";
 import {
   BackgroundEffect,
   BackgroundGradient,
@@ -188,15 +189,17 @@ const BACKGROUND_PRESET_MAP = BACKGROUND_GRADIENT_PRESETS.reduce(
 );
 
 export function isVideoBackgroundUrl(value?: string | null): boolean {
-  if (!value || !/^https?:\/\//i.test(value)) {
+  if (!value || !isCatboxUrl(value)) {
     return false;
   }
 
+  const normalized = value.trim();
+
   try {
-    const parsed = new URL(value);
+    const parsed = new URL(normalized);
     return /\.mp4$/i.test(parsed.pathname);
   } catch {
-    return /\.mp4(?:$|[?#])/i.test(value);
+    return /\.mp4(?:$|[?#])/i.test(normalized);
   }
 }
 
@@ -211,13 +214,15 @@ export function getProfileBackgroundStyle(
     };
   }
 
-  if (mode === "image" && value && /^https?:\/\//i.test(value)) {
-    if (isVideoBackgroundUrl(value)) {
+  if (mode === "image" && typeof value === "string" && isCatboxUrl(value)) {
+    const imageUrl = value.trim();
+
+    if (isVideoBackgroundUrl(imageUrl)) {
       return {};
     }
 
     return {
-      backgroundImage: `linear-gradient(180deg, rgba(9,11,15,0.5), rgba(9,11,15,0.72)), url("${value}")`,
+      backgroundImage: `linear-gradient(180deg, rgba(9,11,15,0.5), rgba(9,11,15,0.72)), url("${imageUrl}")`,
       backgroundSize: "cover",
       backgroundPosition: "center",
       backgroundRepeat: "no-repeat",

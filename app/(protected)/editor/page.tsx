@@ -3,7 +3,7 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { getOrCreateProfile } from "@/lib/data";
 import { getDiscordPremiumTicketUrl } from "@/lib/env";
 import { createClient } from "@/lib/supabase/server";
-import { AdminActionNoticeRow, CommentRow, LinkRow, MusicTrackRow, WidgetRow } from "@/types/db";
+import { AdminActionNoticeRow, CommentRow, LinkRow, MusicTrackRow } from "@/types/db";
 
 export default async function EditorPage() {
   const supabase = await createClient();
@@ -17,15 +17,10 @@ export default async function EditorPage() {
 
   const profile = await getOrCreateProfile(user);
 
-  const [linksResult, tracksResult, widgetsResult, commentsResult, noticesResult] = await Promise.all([
+  const [linksResult, tracksResult, commentsResult, noticesResult] = await Promise.all([
     supabase.from("links").select("*").eq("user_id", user.id).order("sort_order", { ascending: true }),
     supabase
       .from("music_tracks")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("sort_order", { ascending: true }),
-    supabase
-      .from("widgets")
       .select("*")
       .eq("user_id", user.id)
       .order("sort_order", { ascending: true }),
@@ -45,7 +40,6 @@ export default async function EditorPage() {
 
   const links = (linksResult.data ?? []) as LinkRow[];
   const tracks = (tracksResult.data ?? []) as MusicTrackRow[];
-  const widgets = (widgetsResult.data ?? []) as WidgetRow[];
   const comments = (commentsResult.data ?? []) as CommentRow[];
   const adminNotices = (noticesResult.data ?? []) as AdminActionNoticeRow[];
 
@@ -56,7 +50,6 @@ export default async function EditorPage() {
         profile={profile}
         initialLinks={links}
         initialTracks={tracks}
-        initialWidgets={widgets}
         recentComments={comments}
         adminNotices={adminNotices}
         premiumTicketUrl={getDiscordPremiumTicketUrl()}

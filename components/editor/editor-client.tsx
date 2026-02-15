@@ -40,6 +40,7 @@ import {
 import { LivePreview } from "@/components/editor/live-preview";
 import { SiteLinkIcon } from "@/components/links/site-link-icon";
 import { BadgeChip } from "@/components/ui/badge-chip";
+import { isCatboxUrl } from "@/lib/catbox";
 import { LINK_EFFECT_OPTIONS } from "@/lib/link-appearance";
 import { getSiteFaviconUrl, resolveLinkIconValue, withProtocol } from "@/lib/link-icons";
 import { getMusicProviderSearchLinks, resolveMusicEmbedUrl } from "@/lib/music-embeds";
@@ -69,7 +70,6 @@ import {
   linkInputSchema,
   musicTrackInputSchema,
   profileUpdateSchema,
-  widgetInputSchema,
 } from "@/lib/validations";
 import {
   AdminActionNoticeRow,
@@ -90,7 +90,6 @@ import {
   ProfileRow,
   TemplateName,
   ThemeName,
-  WidgetRow,
   EntryGateFontSize,
   EntryGateFontPreset,
   EntryGateFontWeight,
@@ -131,7 +130,6 @@ interface EditorClientProps {
   profile: ProfileRow;
   initialLinks: LinkRow[];
   initialTracks: MusicTrackRow[];
-  initialWidgets: WidgetRow[];
   recentComments: CommentRow[];
   adminNotices: AdminActionNoticeRow[];
   premiumTicketUrl: string;
@@ -198,7 +196,6 @@ const ENTRY_GATE_BACKGROUND_BLUR_MIN = 0;
 const ENTRY_GATE_BACKGROUND_BLUR_MAX = 32;
 const ENTRY_GATE_BACKGROUND_BLUR_DEFAULT = 12;
 
-const BACKGROUND_MEDIA_BUCKET = "profile-backgrounds";
 const BACKGROUND_MEDIA_MAX_BYTES = 50 * 1024 * 1024;
 const BACKGROUND_MEDIA_ACCEPT = "image/*,video/mp4";
 const ALLOWED_BACKGROUND_MEDIA_MIME_TYPES = new Set([
@@ -296,20 +293,6 @@ function emptyTrack(userId: string, sortOrder: number): MusicTrackRow {
     user_id: userId,
     title: "New Track",
     embed_url: "https://",
-    sort_order: sortOrder,
-    is_active: true,
-    created_at: new Date().toISOString(),
-  };
-}
-
-function emptyWidget(userId: string, sortOrder: number): WidgetRow {
-  return {
-    id: crypto.randomUUID(),
-    user_id: userId,
-    widget_type: "clock",
-    title: "Widget",
-    value: null,
-    source_url: null,
     sort_order: sortOrder,
     is_active: true,
     created_at: new Date().toISOString(),
@@ -577,6 +560,27 @@ function getStoragePathFromPublicUrl(publicUrl: string, bucket: string): string 
   }
 }
 
+async function uploadFileToCatbox(file: File): Promise<string> {
+  const payload = new FormData();
+  payload.append("file", file, file.name || "upload.bin");
+
+  const response = await fetch("/api/uploads/catbox", {
+    method: "POST",
+    body: payload,
+  });
+
+  const result = (await response.json().catch(() => ({}))) as {
+    error?: string;
+    url?: string;
+  };
+
+  if (!response.ok || typeof result.url !== "string" || !isCatboxUrl(result.url)) {
+    throw new Error(result.error ?? "Catbox upload failed.");
+  }
+
+  return result.url;
+}
+
 function formatLastUpdated(updatedAt: string): string {
   const parsed = new Date(updatedAt);
 
@@ -728,9 +732,6 @@ function buildEditorSnapshot(input: {
   };
   links: Array<Pick<LinkRow, "id" | "title" | "url" | "description" | "icon" | "sort_order">>;
   tracks: Array<Pick<MusicTrackRow, "id" | "title" | "embed_url" | "is_active" | "sort_order">>;
-  widgets: Array<
-    Pick<WidgetRow, "id" | "widget_type" | "title" | "value" | "source_url" | "is_active" | "sort_order">
-  >;
 }): string {
   return JSON.stringify({
     profile: {
@@ -790,15 +791,6 @@ function buildEditorSnapshot(input: {
       active: track.is_active,
       sort: track.sort_order,
     })),
-    widgets: input.widgets.map((widget) => ({
-      id: widget.id,
-      type: widget.widget_type,
-      title: widget.title,
-      value: widget.value,
-      source: widget.source_url,
-      active: widget.is_active,
-      sort: widget.sort_order,
-    })),
   });
 }
 
@@ -807,7 +799,6 @@ export function EditorClient({
   profile,
   initialLinks,
   initialTracks,
-  initialWidgets,
   recentComments,
   adminNotices,
   premiumTicketUrl,
@@ -892,7 +883,6 @@ export function EditorClient({
 
   const [links, setLinks] = useState<LinkRow[]>(normalizeSortOrder(initialLinks));
   const [tracks, setTracks] = useState<MusicTrackRow[]>(normalizeSortOrder(initialTracks));
-  const [widgets, setWidgets] = useState<WidgetRow[]>(normalizeSortOrder(initialWidgets));
 
   const [comments, setComments] = useState<CommentRow[]>(recentComments);
   const [activeTab, setActiveTab] = useState<EditorTab>("profile");
@@ -901,7 +891,6 @@ export function EditorClient({
   const [activeProfileSection, setActiveProfileSection] = useState<ProfileSection>("identity");
   const [activeAppearanceSection, setActiveAppearanceSection] = useState<AppearanceSection>("theme");
   const [showMusicSection, setShowMusicSection] = useState(false);
-  const [showWidgetSection, setShowWidgetSection] = useState(false);
   const [showCommentSection, setShowCommentSection] = useState(false);
   const [transitionsEnabled, setTransitionsEnabled] = useState(
     (profile.profile_animation ?? "subtle") !== "none",
@@ -951,7 +940,6 @@ export function EditorClient({
 
   const savedLinkIdsRef = useRef(new Set(initialLinks.map((item) => item.id)));
   const savedTrackIdsRef = useRef(new Set(initialTracks.map((item) => item.id)));
-  const savedWidgetIdsRef = useRef(new Set(initialWidgets.map((item) => item.id)));
 
   const profileBadges = useMemo(() => normalizeBadges(profile.badges), [profile.badges]);
   const hasPremium = useMemo(() => hasPremiumBadge(profileBadges), [profileBadges]);
@@ -1076,7 +1064,6 @@ export function EditorClient({
         },
         links,
         tracks,
-        widgets,
       }),
     [
       avatarFloat,
@@ -1121,7 +1108,6 @@ export function EditorClient({
       theme,
       tracks,
       avatarShape,
-      widgets,
     ],
   );
 
@@ -1496,18 +1482,6 @@ export function EditorClient({
     setTracks((prev) => normalizeSortOrder(prev.filter((track) => track.id !== trackId)));
   }
 
-  function addWidget() {
-    setWidgets((prev) => [...prev, emptyWidget(userId, prev.length)]);
-  }
-
-  function updateWidget(widgetId: string, patch: Partial<WidgetRow>) {
-    setWidgets((prev) => prev.map((widget) => (widget.id === widgetId ? { ...widget, ...patch } : widget)));
-  }
-
-  function removeWidget(widgetId: string) {
-    setWidgets((prev) => normalizeSortOrder(prev.filter((widget) => widget.id !== widgetId)));
-  }
-
   async function persistAvatarUrl(nextUrl: string | null) {
     const normalizedUrl = nextUrl?.trim() || null;
     const { error } = await supabase
@@ -1532,24 +1506,9 @@ export function EditorClient({
     setUploadingAvatar(true);
 
     try {
-      const extension = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-
-      const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
-        upsert: true,
-        contentType: file.type,
-      });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("avatars").getPublicUrl(path);
-
-      await persistAvatarUrl(publicUrl);
-      pushToast("success", "Avatar uploaded and saved.");
+      const catboxUrl = await uploadFileToCatbox(file);
+      await persistAvatarUrl(catboxUrl);
+      pushToast("success", "Avatar uploaded to Catbox and saved.");
     } catch (error) {
       pushToast("error", asSafeError(error, "Could not upload avatar."));
     } finally {
@@ -1597,35 +1556,12 @@ export function EditorClient({
     setUploadingBackgroundMedia(true);
 
     try {
-      const path = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
-
-      const { error: uploadError } = await supabase.storage.from(BACKGROUND_MEDIA_BUCKET).upload(path, file, {
-        upsert: true,
-        contentType: mimeType,
-      });
-
-      if (uploadError) {
-        throw uploadError;
-      }
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from(BACKGROUND_MEDIA_BUCKET).getPublicUrl(path);
-
+      const publicUrl = await uploadFileToCatbox(file);
       setBackgroundMode("image");
       setBackgroundValue(publicUrl);
-      pushToast("success", "Background media uploaded. Save changes to publish.");
+      pushToast("success", "Background media uploaded to Catbox. Save changes to publish.");
     } catch (error) {
-      const message = asSafeError(error, "Could not upload background media.");
-
-      if (/bucket.*not found/i.test(message) || /not found/i.test(message)) {
-        pushToast(
-          "error",
-          "Background uploads are not ready yet. Run the latest Supabase migrations and try again.",
-        );
-      } else {
-        pushToast("error", message);
-      }
+      pushToast("error", asSafeError(error, "Could not upload background media."));
     } finally {
       setUploadingBackgroundMedia(false);
       event.target.value = "";
@@ -1636,16 +1572,6 @@ export function EditorClient({
     setUploadingBackgroundMedia(true);
 
     try {
-      const backgroundUrl = backgroundValue.trim();
-
-      if (backgroundUrl) {
-        const storagePath = getStoragePathFromPublicUrl(backgroundUrl, BACKGROUND_MEDIA_BUCKET);
-
-        if (storagePath) {
-          await supabase.storage.from(BACKGROUND_MEDIA_BUCKET).remove([storagePath]);
-        }
-      }
-
       setBackgroundMode("theme");
       setBackgroundValue("");
       pushToast("success", "Background media cleared. Save changes to publish.");
@@ -2070,7 +1996,12 @@ export function EditorClient({
     setSaving(true);
 
     try {
+      const normalizedAvatarUrl = avatarUrl.trim();
       const normalizedBackgroundValue = backgroundValue.trim();
+
+      if (normalizedAvatarUrl && !isCatboxUrl(normalizedAvatarUrl)) {
+        throw new Error("Avatar URL must use https://catbox.moe.");
+      }
 
       if (backgroundMode === "image" && !normalizedBackgroundValue) {
         throw new Error("Upload background media or paste a media URL before saving.");
@@ -2184,37 +2115,10 @@ export function EditorClient({
         }
       }
 
-      const preparedWidgets = normalizeSortOrder(widgets).map((widget, index) => ({
-        id: widget.id,
-        user_id: userId,
-        widget_type: widget.widget_type,
-        title: widget.title,
-        value: widget.value || null,
-        source_url: widget.source_url ? withProtocol(widget.source_url) : null,
-        sort_order: index,
-        is_active: widget.is_active,
-      }));
-
-      for (const item of preparedWidgets) {
-        const parsedWidget = widgetInputSchema.safeParse({
-          id: item.id,
-          widgetType: item.widget_type,
-          title: item.title,
-          value: item.value,
-          sourceUrl: item.source_url,
-          sortOrder: item.sort_order,
-          isActive: item.is_active,
-        });
-
-        if (!parsedWidget.success) {
-          throw new Error(parsedWidget.error.issues[0]?.message ?? "Invalid widget fields.");
-        }
-      }
-
       const profileUpdates: Record<string, unknown> = {
         display_name: parsedProfile.data.displayName,
         bio: parsedProfile.data.bio || null,
-        avatar_url: avatarUrl.trim() || null,
+        avatar_url: normalizedAvatarUrl || null,
         theme: parsedProfile.data.theme,
         layout: parsedProfile.data.layout,
         template: parsedProfile.data.template,
@@ -2263,6 +2167,13 @@ export function EditorClient({
 
       if (profileError) {
         const profileErrorMessage = profileError.message.toLowerCase();
+
+        if (
+          profileErrorMessage.includes("profiles_avatar_url_catbox_check")
+          || profileErrorMessage.includes("profiles_background_value_check")
+        ) {
+          throw new Error("Avatar and background media must use https://catbox.moe URLs.");
+        }
 
         if (
           profileErrorMessage.includes("profiles_banned_public_check")
@@ -2349,31 +2260,6 @@ export function EditorClient({
 
       savedTrackIdsRef.current = nextTrackIds;
 
-      const { error: widgetUpsertError } = await supabase
-        .from("widgets")
-        .upsert(preparedWidgets, { onConflict: "id" });
-
-      if (widgetUpsertError) {
-        throw widgetUpsertError;
-      }
-
-      const nextWidgetIds = new Set(preparedWidgets.map((item) => item.id));
-      const removedWidgetIds = [...savedWidgetIdsRef.current].filter((id) => !nextWidgetIds.has(id));
-
-      if (removedWidgetIds.length) {
-        const { error: deleteWidgetsError } = await supabase
-          .from("widgets")
-          .delete()
-          .eq("user_id", userId)
-          .in("id", removedWidgetIds);
-
-        if (deleteWidgetsError) {
-          throw deleteWidgetsError;
-        }
-      }
-
-      savedWidgetIdsRef.current = nextWidgetIds;
-
       setLinks((prev) =>
         preparedLinks.map((item) => ({
           ...item,
@@ -2382,12 +2268,6 @@ export function EditorClient({
       );
       setTracks((prev) =>
         preparedTracks.map((item) => ({
-          ...item,
-          created_at: prev.find((row) => row.id === item.id)?.created_at ?? new Date().toISOString(),
-        })),
-      );
-      setWidgets((prev) =>
-        preparedWidgets.map((item) => ({
           ...item,
           created_at: prev.find((row) => row.id === item.id)?.created_at ?? new Date().toISOString(),
         })),
@@ -2485,7 +2365,6 @@ export function EditorClient({
         },
         links: preparedLinks,
         tracks: preparedTracks,
-        widgets: preparedWidgets,
       });
 
       setLastSavedSnapshot(savedSnapshot);
@@ -2720,7 +2599,9 @@ export function EditorClient({
 
                                 <div className="min-w-[220px] flex-1">
                                   <p className="text-[11px] uppercase tracking-[0.14em] text-[#88938e]">Avatar</p>
-                                  <p className="mt-1 text-sm text-[#d6ddd9]">Recommended: square image, 512x512 minimum.</p>
+                                  <p className="mt-1 text-sm text-[#d6ddd9]">
+                                    Recommended: square image, 512x512 minimum. Uploads are hosted on Catbox.
+                                  </p>
                                 </div>
 
                                 <div className="flex items-center gap-2">
@@ -3674,10 +3555,10 @@ export function EditorClient({
                           className="input py-3"
                           value={backgroundValue}
                           onChange={(event) => setBackgroundValue(event.target.value)}
-                          placeholder="https://cdn.example.com/background.mp4"
+                          placeholder="https://files.catbox.moe/background.mp4"
                         />
                         <p className="text-xs text-[#8f98ac]">
-                          Use a high-resolution image or looping MP4 with low visual noise behind text.
+                          Use a Catbox image/video URL with low visual noise behind text.
                         </p>
                         <div className="mt-2 flex flex-wrap items-center gap-2">
                           <input
@@ -4064,7 +3945,7 @@ export function EditorClient({
                                     className="input py-2.5"
                                     value={track.embed_url}
                                     onChange={(event) => updateTrack(track.id, { embed_url: event.target.value })}
-                                    placeholder="Paste direct audio URL (.mp3, .m4a, .wav, .ogg)"
+                                    placeholder="Paste YouTube, SoundCloud, Spotify, Discord, Apple, Catbox, or profile-music URL"
                                   />
                                   <button
                                     type="button"
@@ -4111,102 +3992,6 @@ export function EditorClient({
                               </div>
                             );
                           })
-                        )}
-                      </motion.div>
-                    ) : null}
-                  </AnimatePresence>
-                </div>
-
-                <div className="panel p-7">
-                  <button
-                    type="button"
-                    className="flex w-full items-center justify-between rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-left"
-                    onClick={() => setShowWidgetSection((prev) => !prev)}
-                  >
-                    <div>
-                      <p className="text-base font-medium text-white">Widget Integrations</p>
-                      <p className="text-xs text-[#a79c8d]">Clock, stats, quote, and embed widgets.</p>
-                    </div>
-                    <ChevronDown className={`h-4 w-4 text-[#a6aebe] transition ${showWidgetSection ? "rotate-180" : ""}`} />
-                  </button>
-
-                  <AnimatePresence initial={false}>
-                    {showWidgetSection ? (
-                      <motion.div
-                        className="mt-4 space-y-3"
-                        initial={reduceMotion ? undefined : { opacity: 0, y: -4 }}
-                        animate={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                        exit={reduceMotion ? undefined : { opacity: 0, y: -4 }}
-                        transition={{ duration: 0.2 }}
-                      >
-                        <div className="flex justify-end">
-                          <button type="button" className="btn btn-secondary inline-flex items-center gap-2" onClick={addWidget}>
-                            <Plus className="h-4 w-4" />
-                            Add widget
-                          </button>
-                        </div>
-
-                        {!widgets.length ? (
-                          <p className="rounded-xl border border-white/10 bg-black/20 px-4 py-3 text-sm text-[#ab9f90]">
-                            No widgets yet.
-                          </p>
-                        ) : (
-                          widgets.map((widget) => (
-                            <div key={widget.id} className="space-y-3 rounded-xl border border-white/10 bg-black/20 p-4">
-                              <div className="grid gap-3 md:grid-cols-[160px_1fr_auto]">
-                                <select
-                                  className="input py-2.5"
-                                  value={widget.widget_type}
-                                  onChange={(event) => updateWidget(widget.id, { widget_type: event.target.value as WidgetRow["widget_type"] })}
-                                >
-                                  <option value="clock">Clock</option>
-                                  <option value="stat">Stat</option>
-                                  <option value="quote">Quote</option>
-                                  <option value="embed">Embed</option>
-                                </select>
-                                <input
-                                  className="input py-2.5"
-                                  value={widget.title}
-                                  onChange={(event) => updateWidget(widget.id, { title: event.target.value })}
-                                  placeholder="Widget title"
-                                />
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary inline-flex items-center gap-2"
-                                  onClick={() => removeWidget(widget.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                  Remove
-                                </button>
-                              </div>
-
-                              {widget.widget_type === "embed" ? (
-                                <input
-                                  className="input py-2.5"
-                                  value={widget.source_url ?? ""}
-                                  onChange={(event) => updateWidget(widget.id, { source_url: event.target.value })}
-                                  placeholder="https://embed-source.com"
-                                />
-                              ) : (
-                                <input
-                                  className="input py-2.5"
-                                  value={widget.value ?? ""}
-                                  onChange={(event) => updateWidget(widget.id, { value: event.target.value })}
-                                  placeholder={widget.widget_type === "stat" ? "42" : "Widget value"}
-                                />
-                              )}
-
-                              <label className="flex items-center justify-between rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-xs text-[#b0a595]">
-                                <span>Active</span>
-                                <input
-                                  type="checkbox"
-                                  checked={widget.is_active}
-                                  onChange={(event) => updateWidget(widget.id, { is_active: event.target.checked })}
-                                  className="h-4 w-4 accent-[var(--accent)]"
-                                />
-                              </label>
-                            </div>
-                          ))
                         )}
                       </motion.div>
                     ) : null}
@@ -4591,7 +4376,6 @@ export function EditorClient({
               }}
               links={links}
               tracks={tracks}
-              widgets={widgets}
               previewDevice={previewDevice}
               hideCustomBackground={activeTab === "profile"}
             />
@@ -4640,9 +4424,13 @@ export function EditorClient({
                   className="input py-3"
                   value={linkDraft.url}
                   onChange={(event) => setLinkDraft((prev) => (prev ? { ...prev, url: event.target.value } : prev))}
-                  placeholder="https://example.com"
+                  placeholder="https://youtube.com/@yourchannel"
                 />
               </label>
+
+              <p className="text-xs text-[#8f98ac]">
+                Allowed platforms: YouTube, SoundCloud, Spotify, and Discord.
+              </p>
 
               <label className="space-y-1.5 text-sm">
                 <span className="text-[#ddd6cb]">Description</span>

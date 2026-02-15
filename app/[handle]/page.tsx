@@ -2,19 +2,16 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
 import { PublicProfile } from "@/components/profile/public-profile";
+import { isCatboxUrl } from "@/lib/catbox";
 import { resolveCursorPublicUrl } from "@/lib/cursor";
 import { getSiteBaseUrl } from "@/lib/env";
 import { HANDLE_REGEX, normalizeHandle } from "@/lib/handles";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import { CommentRow, LinkRow, MusicTrackRow, ProfileRow, WidgetRow } from "@/types/db";
+import { CommentRow, LinkRow, MusicTrackRow, ProfileRow } from "@/types/db";
 
 interface PublicHandlePageProps {
   params: Promise<{ handle: string }>;
-}
-
-function isHttpUrl(value: string | null | undefined): value is string {
-  return Boolean(value && /^https?:\/\//i.test(value));
 }
 
 export async function generateMetadata({ params }: PublicHandlePageProps): Promise<Metadata> {
@@ -58,7 +55,7 @@ export async function generateMetadata({ params }: PublicHandlePageProps): Promi
   const pageDescription = profile.bio?.trim() || "View this Atlas profile.";
   const canonicalUrl = `${site}/@${profile.handle}`;
   const fallbackOgImageUrl = `${site}/api/og/profile?handle=${encodeURIComponent(profile.handle)}${profile.display_name ? `&name=${encodeURIComponent(profile.display_name)}` : ""}`;
-  const imageUrl = isHttpUrl(profile.avatar_url) ? profile.avatar_url : fallbackOgImageUrl;
+  const imageUrl = isCatboxUrl(profile.avatar_url) ? profile.avatar_url : fallbackOgImageUrl;
 
   return {
     title: pageTitle,
@@ -161,13 +158,6 @@ export default async function PublicHandlePage({ params }: PublicHandlePageProps
     .eq("is_active", true)
     .order("sort_order", { ascending: true });
 
-  const { data: widgetsData } = await reader
-    .from("widgets")
-    .select("*")
-    .eq("user_id", profile.id)
-    .eq("is_active", true)
-    .order("sort_order", { ascending: true });
-
   const { data: commentsData } = await reader
     .from("comments")
     .select("*")
@@ -224,7 +214,6 @@ export default async function PublicHandlePage({ params }: PublicHandlePageProps
 
   const links = (linksData ?? []) as LinkRow[];
   const tracks = (tracksData ?? []) as MusicTrackRow[];
-  const widgets = (widgetsData ?? []) as WidgetRow[];
   const comments = (commentsData ?? []) as CommentRow[];
   const shouldTrack = profile.is_public;
 
@@ -233,11 +222,11 @@ export default async function PublicHandlePage({ params }: PublicHandlePageProps
       profile={profile}
       links={links}
       tracks={tracks}
-      widgets={widgets}
       initialComments={comments}
       initialViewCount={totalViews}
       activeCursorAsset={activeCursorAsset}
       shouldTrack={shouldTrack}
+      isViewerAuthenticated={Boolean(user)}
     />
   );
 }

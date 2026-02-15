@@ -1,5 +1,6 @@
 ﻿"use client";
 
+import Link from "next/link";
 import { BadgeCheck, Crown, Eye, MessageCircle, ShieldCheck, Sparkles, Wrench } from "lucide-react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { type CSSProperties, type ReactNode, FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -7,6 +8,7 @@ import { type CSSProperties, type ReactNode, FormEvent, useEffect, useMemo, useR
 import { CursorStudioRuntime } from "@/components/cursor/cursor-studio-runtime";
 import { SiteLinkIcon } from "@/components/links/site-link-icon";
 import { CustomMusicPlayer } from "@/components/music/custom-music-player";
+import { isCatboxUrl } from "@/lib/catbox";
 import { getLinkEffectClass } from "@/lib/link-appearance";
 import { RichTextContent } from "@/components/profile/rich-text-content";
 import { BadgeChip } from "@/components/ui/badge-chip";
@@ -41,18 +43,17 @@ import {
   ProfileAnimation,
   ProfileEffect,
   ProfileRow,
-  WidgetRow,
 } from "@/types/db";
 
 interface PublicProfileProps {
   profile: ProfileRow;
   links: LinkRow[];
   tracks: MusicTrackRow[];
-  widgets: WidgetRow[];
   initialComments: CommentRow[];
   initialViewCount: number;
   activeCursorAsset: { fileUrl: string; hotspotX: number; hotspotY: number } | null;
   shouldTrack: boolean;
+  isViewerAuthenticated: boolean;
 }
 
 function getAvatarShapeClass(shape: AvatarShape): string {
@@ -81,14 +82,6 @@ function getLinkSurfaceClass(style: LinkStyle): string {
   }
 
   return "border-white/10 bg-[#17171d]/92";
-}
-
-function formatClock(date: Date): string {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    second: "2-digit",
-  }).format(date);
 }
 
 function formatCommentDate(dateValue: string): string {
@@ -164,22 +157,19 @@ export function PublicProfile({
   profile,
   links,
   tracks,
-  widgets,
   initialComments,
   initialViewCount,
   activeCursorAsset,
   shouldTrack,
+  isViewerAuthenticated,
 }: PublicProfileProps) {
   const reduceMotion = useReducedMotion();
 
   const [comments, setComments] = useState(initialComments);
-  const [authorName, setAuthorName] = useState("");
-  const [authorWebsite, setAuthorWebsite] = useState("");
   const [commentBody, setCommentBody] = useState("");
   const [commentMessage, setCommentMessage] = useState("");
   const [commentError, setCommentError] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
-  const [now, setNow] = useState(() => new Date());
   const [viewCount, setViewCount] = useState(initialViewCount);
   const [entryGateVisible, setEntryGateVisible] = useState(profile.entry_gate_enabled ?? false);
   const [entryGateExiting, setEntryGateExiting] = useState(false);
@@ -211,11 +201,6 @@ export function PublicProfile({
     [tracks],
   );
 
-  const sortedWidgets = useMemo(
-    () => widgets.filter((widget) => widget.is_active).sort((a, b) => a.sort_order - b.sort_order),
-    [widgets],
-  );
-
   const profileBadges = useMemo(() => normalizeBadges(profile.badges), [profile.badges]);
   const animationMode: ProfileAnimation = profile.profile_animation ?? "subtle";
   const profileEffect: ProfileEffect = profile.profile_effect ?? "none";
@@ -223,6 +208,7 @@ export function PublicProfile({
   const linkEffect: LinkEffect = profile.link_effect ?? "none";
   const linkIconTint = profile.link_icon_tint ?? null;
   const avatarShape: AvatarShape = profile.avatar_shape ?? "circle";
+  const avatarUrl = isCatboxUrl(profile.avatar_url) ? profile.avatar_url : null;
   const heroAlign: HeroAlign = profile.hero_align ?? "center";
   const backgroundMode: BackgroundMode = profile.background_mode ?? "theme";
   const backgroundValue = profile.background_value ?? null;
@@ -332,11 +318,6 @@ export function PublicProfile({
     founder: <Crown className="h-3.5 w-3.5" />,
   };
   const shouldShowDiscordStatus = profile.discord_presence_enabled && Boolean(profile.discord_user_id);
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     if (!shouldShowDiscordStatus || !profile.discord_user_id) {
@@ -521,7 +502,6 @@ export function PublicProfile({
     richText,
     sortedLinks.length,
     sortedTracks.length,
-    sortedWidgets.length,
   ]);
 
   function trackClick(linkId: string) {
@@ -559,8 +539,6 @@ export function PublicProfile({
         },
         body: JSON.stringify({
           handle: profile.handle,
-          authorName,
-          authorWebsite,
           body: commentBody,
         }),
       });
@@ -572,8 +550,6 @@ export function PublicProfile({
       }
 
       setComments((prev) => [payload.comment as CommentRow, ...prev]);
-      setAuthorName("");
-      setAuthorWebsite("");
       setCommentBody("");
       setCommentMessage("Comment posted.");
     } catch (error) {
@@ -661,12 +637,12 @@ export function PublicProfile({
                   }
                 >
                   <div className="relative">
-                    {profile.avatar_url ? (
+                    {avatarUrl ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         alt={`${profile.display_name ?? profile.handle} avatar`}
                         className={`h-24 w-24 border border-white/16 object-cover ${getAvatarShapeClass(avatarShape)}`}
-                        src={profile.avatar_url}
+                        src={avatarUrl}
                       />
                     ) : (
                       <div
@@ -803,31 +779,6 @@ export function PublicProfile({
                 </section>
               ) : null}
 
-              {sortedWidgets.length ? (
-                <section className="space-y-3">
-                  <p className="text-xs uppercase tracking-[0.14em] text-[#9d9488]">Widgets</p>
-                  <div className={profile.layout === "stack" ? "space-y-2" : "grid grid-cols-1 gap-2 sm:grid-cols-2"}>
-                    {sortedWidgets.map((widget) => (
-                      <div key={widget.id} className="surface-soft p-4">
-                        <p className="text-xs text-[#9f978b]">{widget.title}</p>
-                        {widget.widget_type === "clock" ? (
-                          <p className="mt-1 text-lg font-medium text-white">{formatClock(now)}</p>
-                        ) : null}
-                        {widget.widget_type === "stat" ? (
-                          <p className="mt-1 text-lg font-medium text-white">{widget.value || "0"}</p>
-                        ) : null}
-                        {widget.widget_type === "quote" ? (
-                          <p className="mt-1 text-sm text-[#ddd6cc]">{widget.value || ""}</p>
-                        ) : null}
-                        {widget.widget_type === "embed" ? (
-                          <p className="mt-1 text-xs text-[#958d80]">Embed is active on this profile.</p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ) : null}
-
               {profile.comments_enabled ? (
                 <section className="space-y-3">
                   <div className="flex items-center gap-2">
@@ -835,46 +786,45 @@ export function PublicProfile({
                     <p className="text-sm font-medium text-white">Comments</p>
                   </div>
 
-                  <form className="surface-soft space-y-3 p-4" onSubmit={submitComment}>
-                    <div className="grid gap-2 sm:grid-cols-2">
-                      <input
-                        className="input"
-                        placeholder="Your name"
-                        value={authorName}
-                        onChange={(event) => setAuthorName(event.target.value)}
+                  {isViewerAuthenticated ? (
+                    <form className="surface-soft space-y-3 p-4" onSubmit={submitComment}>
+                      <p className="text-xs text-[#a79f92]">Posting as your account name.</p>
+                      <textarea
+                        className="input min-h-20"
+                        placeholder="Leave a comment"
+                        value={commentBody}
+                        onChange={(event) => setCommentBody(event.target.value)}
+                        maxLength={300}
                         required
                       />
-                      <input
-                        className="input"
-                        placeholder="Website (optional)"
-                        value={authorWebsite}
-                        onChange={(event) => setAuthorWebsite(event.target.value)}
-                      />
+
+                      {commentError ? (
+                        <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+                          {commentError}
+                        </p>
+                      ) : null}
+
+                      {commentMessage ? (
+                        <p className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
+                          {commentMessage}
+                        </p>
+                      ) : null}
+
+                      <button className="btn btn-primary" type="submit" disabled={commentLoading}>
+                        {commentLoading ? "Posting..." : "Post comment"}
+                      </button>
+                    </form>
+                  ) : (
+                    <div className="surface-soft flex flex-col items-start gap-3 p-4">
+                      <p className="text-sm text-[#b8afa2]">Sign in to leave a comment.</p>
+                      <Link
+                        className="btn btn-secondary"
+                        href={`/auth?mode=sign-in&next=${encodeURIComponent(`/@${profile.handle}`)}`}
+                      >
+                        Sign in to comment
+                      </Link>
                     </div>
-                    <textarea
-                      className="input min-h-20"
-                      placeholder="Leave a comment"
-                      value={commentBody}
-                      onChange={(event) => setCommentBody(event.target.value)}
-                      required
-                    />
-
-                    {commentError ? (
-                      <p className="rounded-lg border border-red-400/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
-                        {commentError}
-                      </p>
-                    ) : null}
-
-                    {commentMessage ? (
-                      <p className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200">
-                        {commentMessage}
-                      </p>
-                    ) : null}
-
-                    <button className="btn btn-primary" type="submit" disabled={commentLoading}>
-                      {commentLoading ? "Posting..." : "Post comment"}
-                    </button>
-                  </form>
+                  )}
 
                   {comments.length ? (
                     <div className="space-y-2">

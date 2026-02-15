@@ -27,7 +27,7 @@ Atlas is a premium dark bio/link hub built with Next.js App Router, TypeScript, 
   - badges (owner/admin/staff/verified/pro/founder)
   - rich text
   - music API search + embed URL helper (Spotify/YouTube/SoundCloud/Apple)
-  - widget integrations
+  - basic link/music URL allowlist (YouTube, SoundCloud, Spotify, Discord + approved music storage)
   - live preview
   - comments moderation
 - Link reorder + CRUD
@@ -53,7 +53,7 @@ Atlas is a premium dark bio/link hub built with Next.js App Router, TypeScript, 
 4. In Supabase Auth settings, add redirect URLs:
    - `https://joinatlas.dev/auth/callback`
 5. Confirm the migration created:
-   - Tables: `profiles`, `links`, `analytics_daily`, `music_tracks`, `widgets`, `comments`, `admin_users`
+  - Tables: `profiles`, `links`, `analytics_daily`, `music_tracks`, `widgets` (writes disabled), `comments`, `admin_users`
    - Storage buckets: `avatars`, `cursors`, `profile-backgrounds`, `profile-fonts`, `link-icons`
    - RLS policies + tracking functions
 

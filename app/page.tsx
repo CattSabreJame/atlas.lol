@@ -67,7 +67,7 @@ const NAV_ITEMS = [
 const CORE_FEATURES: FeatureItem[] = [
   {
     title: "Profile Editor",
-    sentence: "Build your public page with links, widgets, music, entry screen, and full visual controls.",
+    sentence: "Build your public page with links, music, entry screen, and full visual controls.",
     icon: LayoutPanelTop,
     kicker: "Starter Included",
   },
@@ -106,7 +106,7 @@ const FREE_PLAN_LIST: PlanListItem[] = [
   { label: "Entry screen and custom fonts" },
   { label: "Profile and link effects" },
   { label: "Analytics dashboard" },
-  { label: "Music and widgets" },
+  { label: "Music embeds" },
 ];
 
 const PRO_PLAN_LIST: PlanListItem[] = [

@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+import { isCatboxUrl } from "@/lib/catbox";
 import { HANDLE_REGEX } from "@/lib/handles";
+import { isAllowedBasicPlatformUrl, isAllowedMusicUrl } from "@/lib/url-allowlist";
 
 const httpsUrlSchema = z
   .string()
@@ -211,11 +213,11 @@ export const profileUpdateSchema = z.object({
       return;
     }
 
-    if (!/^https?:\/\//i.test(value)) {
+    if (!isCatboxUrl(value)) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ["backgroundValue"],
-        message: "Background media URL must start with http:// or https://.",
+        message: "Background media URL must use https://catbox.moe.",
       });
     }
   }
@@ -305,7 +307,10 @@ export const linkInputSchema = z.object({
     .trim()
     .min(1, "Link title is required.")
     .max(80, "Link title must be 80 characters or fewer."),
-  url: httpsUrlSchema,
+  url: httpsUrlSchema.refine(
+    (value) => isAllowedBasicPlatformUrl(value),
+    "Only basic platform links are allowed (YouTube, SoundCloud, Spotify, Discord).",
+  ),
   description: z
     .string()
     .trim()
@@ -336,7 +341,10 @@ export const musicTrackInputSchema = z.object({
     .trim()
     .min(1, "Track title is required.")
     .max(80, "Track title must be 80 characters or fewer."),
-  embedUrl: httpsUrlSchema,
+  embedUrl: httpsUrlSchema.refine(
+    (value) => isAllowedMusicUrl(value),
+    "Music URL must be from allowed providers or approved storage.",
+  ),
   sortOrder: z.number().int().min(0),
   isActive: z.boolean(),
 });
@@ -371,17 +379,12 @@ export const widgetInputSchema = z.object({
 
 export const commentCreateSchema = z.object({
   handle: handleSchema,
-  authorName: z
-    .string()
-    .trim()
-    .min(2, "Name must be at least 2 characters.")
-    .max(50, "Name must be 50 characters or fewer."),
-  authorWebsite: httpsUrlSchema.optional().nullable().or(z.literal("")),
   body: z
     .string()
     .trim()
     .min(2, "Comment must be at least 2 characters.")
-    .max(300, "Comment must be 300 characters or fewer."),
+    .max(300, "Comment must be 300 characters or fewer.")
+    .refine((value) => !/[<>]/.test(value), "Comment cannot include HTML tags."),
 });
 
 export const aiBioGenerateSchema = z.object({
