@@ -94,6 +94,7 @@ SMTP_FROM_EMAIL=no-reply@yourdomain.com
 SMTP_FROM_NAME=Atlas
 NEXT_PUBLIC_DISCORD_APPEAL_URL=https://discord.gg/your-server
 NEXT_PUBLIC_DISCORD_PREMIUM_TICKET_URL=https://discord.gg/your-server
+NEXT_PUBLIC_GA_MEASUREMENT_ID=G-XXXXXXXXXX
 ```
 
 Notes:
@@ -101,6 +102,7 @@ Notes:
 - If `GROQ_API_KEY` is missing, AI features switch to local fallback templates and show `AI not configured`.
 - `NEXT_PUBLIC_DISCORD_PREMIUM_TICKET_URL` is used for premium upgrade CTAs.
 - Signup, magic link, and password reset emails are sent through `/api/auth/email` using your SMTP settings.
+- `NEXT_PUBLIC_GA_MEASUREMENT_ID` is optional. If provided, Google Analytics tracking will be enabled site-wide.
 
 ## Run Locally
 

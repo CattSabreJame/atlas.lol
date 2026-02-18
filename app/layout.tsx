@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { DM_Mono, Plus_Jakarta_Sans } from "next/font/google";
 
 import "./globals.css";
+import GoogleAnalytics from "@/components/GoogleAnalytics";
 
 const sans = Plus_Jakarta_Sans({
   variable: "--font-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${sans.variable} ${mono.variable} antialiased`}>
+        <GoogleAnalytics />
         {children}
       </body>
     </html>
