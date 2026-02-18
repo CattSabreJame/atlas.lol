@@ -3,8 +3,8 @@ import Script from "next/script";
 // Extend Window interface for Google Analytics
 declare global {
   interface Window {
-    dataLayer: any[];
-    gtag: (...args: any[]) => void;
+    dataLayer: IArguments[];
+    gtag: (command: string, ...args: any[]) => void;
   }
 }
 
